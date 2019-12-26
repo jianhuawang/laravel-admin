@@ -12,6 +12,7 @@ use Encore\Admin\Grid\Exporters\AbstractExporter;
 use Encore\Admin\Grid\Model;
 use Encore\Admin\Grid\Row;
 use Encore\Admin\Grid\Tools;
+use Encore\Admin\Traits\ShouldSnakeAttributes;
 use Illuminate\Database\Eloquent\Model as Eloquent;
 use Illuminate\Database\Eloquent\Relations;
 use Illuminate\Support\Collection;
@@ -33,6 +34,7 @@ class Grid
         Concerns\HasSelector,
         Concerns\CanHidesColumns,
         Concerns\CanFixColumns,
+        ShouldSnakeAttributes,
         Macroable {
             __call as macroCall;
         }
@@ -40,7 +42,7 @@ class Grid
     /**
      * The grid data model instance.
      *
-     * @var \Encore\Admin\Grid\Model
+     * @var \Encore\Admin\Grid\Model|\Illuminate\Database\Eloquent\Builder
      */
     protected $model;
 
@@ -154,6 +156,7 @@ class Grid
         'show_row_selector'      => true,
         'show_create_btn'        => true,
         'show_column_selector'   => true,
+        'show_define_empty_page' => true,
     ];
 
     /**
@@ -384,7 +387,7 @@ class Grid
             return $this;
         }
 
-        $name = Str::snake($relation).'.'.$column;
+        $name = ($this->shouldSnakeAttributes() ? Str::snake($relation) : $relation).'.'.$column;
 
         $this->model()->with($relation);
 
@@ -429,7 +432,7 @@ class Grid
     /**
      * Get Grid model.
      *
-     * @return Model
+     * @return Model|\Illuminate\Database\Eloquent\Builder
      */
     public function model()
     {
@@ -737,6 +740,26 @@ class Grid
     }
 
     /**
+     * Remove define empty page on grid.
+     *
+     * @return $this
+     */
+    public function disableDefineEmptyPage(bool $disable = true)
+    {
+        return $this->option('show_define_empty_page', !$disable);
+    }
+
+    /**
+     * If grid show define empty page on grid.
+     *
+     * @return bool
+     */
+    public function showDefineEmptyPage()
+    {
+        return $this->option('show_define_empty_page');
+    }
+
+    /**
      * If allow creation.
      *
      * @return bool
@@ -821,7 +844,9 @@ class Grid
         ) {
             $this->model()->with($method);
 
-            return $this->addColumn($method, $label)->setRelation(Str::snake($method));
+            return $this->addColumn($method, $label)->setRelation(
+                $this->shouldSnakeAttributes() ? Str::snake($method) : $method
+            );
         }
 
         if ($relation instanceof Relations\HasMany
@@ -831,7 +856,7 @@ class Grid
         ) {
             $this->model()->with($method);
 
-            return $this->addColumn(Str::snake($method), $label);
+            return $this->addColumn($this->shouldSnakeAttributes() ? Str::snake($method) : $method, $label);
         }
 
         return false;
